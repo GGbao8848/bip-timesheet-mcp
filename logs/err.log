@@ -1,0 +1,97 @@
+2026-08-12T16:20:15: [bip-mcp] 启动模式: http（2026-08-12T08:20:15.995Z）
+2026-08-12T16:20:16: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T16:20:16: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T16:20:16: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T16:20:16: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T16:24:01: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T08:24:01.173Z）
+2026-08-12T16:24:01: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T16:24:01: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T16:24:01: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T16:24:01: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T16:24:16: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T08:24:16.719Z）
+2026-08-12T16:24:16: Error: listen EADDRINUSE: address already in use :::51889
+2026-08-12T16:24:16:     at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+2026-08-12T16:24:16:     at listenInCluster (node:net:2065:12)
+2026-08-12T16:24:16:     at Server.listen (node:net:2170:7)
+2026-08-12T16:24:16:     at app.listen (E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\node_modules\express\lib\application.js:635:24)
+2026-08-12T16:24:16:     at runHttp (file:///E:/br/MCP/jiangsu-beiren-bip-work-hour-reporting-mcp/dist/index.js:451:9)
+2026-08-12T16:24:16:     at file:///E:/br/MCP/jiangsu-beiren-bip-work-hour-reporting-mcp/dist/index.js:493:5
+2026-08-12T16:24:16:     at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+2026-08-12T16:24:16:     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+2026-08-12T16:24:16:     at async node:internal/modules/esm/loader:633:26 {
+2026-08-12T16:24:16:   code: 'EADDRINUSE',
+2026-08-12T16:24:16:   errno: -4091,
+2026-08-12T16:24:16:   syscall: 'listen',
+2026-08-12T16:24:16:   address: '::',
+2026-08-12T16:24:16:   port: 51889
+2026-08-12T16:24:16: }
+2026-08-12T16:24:20: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T08:24:20.150Z）
+2026-08-12T16:24:20: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T16:24:20: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T16:24:20: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T16:24:20: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T16:24:34: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T08:24:34.468Z）
+2026-08-12T16:24:34: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T16:24:34: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T16:24:34: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T16:24:34: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T16:39:20: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T08:39:20.423Z）
+2026-08-12T16:39:20: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T16:39:20: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T16:39:20: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T16:39:20: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T16:42:11: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T08:42:11.684Z）
+2026-08-12T16:42:11: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T16:42:11: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T16:42:11: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T16:42:11: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:05:36: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:05:36.683Z）
+2026-08-12T17:05:36: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:05:36: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:05:36: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:05:36: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:12:00: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:12:00.635Z）
+2026-08-12T17:12:00: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:12:00: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:12:00: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:12:00: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:19:52: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:19:52.103Z）
+2026-08-12T17:19:52: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:19:52: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:19:52: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:19:52: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:21:53: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:21:53.203Z）
+2026-08-12T17:21:53: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:21:53: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:21:53: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:21:53: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:22:48: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:22:48.394Z）
+2026-08-12T17:22:48: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:22:48: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:22:48: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:22:48: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:35:51: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:35:51.498Z）
+2026-08-12T17:35:51: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:35:51: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:35:51: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:35:51: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:37:12: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:37:12.257Z）
+2026-08-12T17:37:12: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:37:12: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:37:12: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:37:12: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:42:37: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:42:37.338Z）
+2026-08-12T17:42:37: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:42:37: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:42:37: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:42:37: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:44:33: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:44:33.504Z）
+2026-08-12T17:44:33: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:44:33: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:44:33: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:44:33: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
+2026-08-12T17:45:28: [bip-mcp] 启动模式: http（pm2 托管：已自动禁用 stdio，仅 HTTP）（2026-08-12T09:45:28.490Z）
+2026-08-12T17:45:28: [bip-mcp] streamable http 就绪: http://10.1.20.132:51889/mcp
+2026-08-12T17:45:28: [bip-mcp] streamable http 就绪: http://2.0.0.1:51889/mcp
+2026-08-12T17:45:28: [bip-mcp] 本机访问: http://localhost:51889/mcp
+2026-08-12T17:45:28: [bip-mcp] python: E:\br\MCP\jiangsu-beiren-bip-work-hour-reporting-mcp\python\.venv\Scripts\python.exe
