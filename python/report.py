@@ -349,6 +349,40 @@ def query_submitted_reports_all(
     return list(merged.values())
 
 
+def enrich_reported_hours(session: requests.Session, cid: str, eid: str, reported: list) -> list:
+    """用报工单数据补全已报工日期的工时。
+
+    考勤接口对已报工日期不再返回明细（resultflag="0" 时 StdHours/打卡均为空），
+    若直接透出会显示 0.0h 造成误导。这里按日期从已提交报工单里取真实总工时；
+    查询失败则原样返回（工时缺失仅影响展示，不影响已报工判定）。
+    """
+    if not reported:
+        return reported
+    try:
+        rows = query_submitted_reports_all(session, cid, eid)
+    except Exception:
+        return reported
+    hours_by_date: dict[str, float] = {}
+    for r in rows:
+        d = str(r.get("ReportDate", "") or "")
+        if not d:
+            continue
+        real = r.get("RealWorkTime", "") or r.get("RealHours", "")
+        if real not in ("", None):
+            try:
+                hours_by_date[d] = hours_by_date.get(d, 0.0) + float(real)
+                continue
+            except (TypeError, ValueError):
+                pass
+        std = r.get("StdWorkTime", "") or r.get("StdHours", 0)
+        ovt = r.get("OvtWorkTime", "") or r.get("OvtHours", 0)
+        try:
+            hours_by_date[d] = hours_by_date.get(d, 0.0) + float(std or 0) + float(ovt or 0)
+        except (TypeError, ValueError):
+            pass
+    return [(ds, hours_by_date.get(ds, hours), on, off) for ds, hours, on, off in reported]
+
+
 def print_scan_results(pending: list, reported: list, abnormal: list, no_attendance: list) -> None:
     """格式化打印考勤扫描结果（四分类）。"""
     print(f"\n{'=' * 55}")
@@ -927,6 +961,7 @@ def main() -> None:
     if args.scan:
         print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
         pending, reported, abnormal, no_att = _q(session, scan_attendance, cid, eid)
+        reported = enrich_reported_hours(session, cid, eid, reported)
         print_scan_results(pending, reported, abnormal, no_att)
         return
 
@@ -941,6 +976,7 @@ def main() -> None:
     if args.preview:
         print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
         pending, reported, abnormal, no_att = _q(session, scan_attendance, cid, eid)
+        reported = enrich_reported_hours(session, cid, eid, reported)
         print_scan_results(pending, reported, abnormal, no_att)
         print("🔎 查询已提交报工单概况...")
         _q(session, print_submitted_summary, cid, eid)
@@ -1030,6 +1066,7 @@ def main() -> None:
         content = args.content
         print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
         pending, reported, abnormal, no_att = _q(session, scan_attendance, cid, eid)
+        reported = enrich_reported_hours(session, cid, eid, reported)
         print_scan_results(pending, reported, abnormal, no_att)
 
         if not pending:
