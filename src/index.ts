@@ -136,7 +136,11 @@ interface Cred {
   username?: string;
   password?: string;
 }
-async function cli(args: string[], cred: Cred) {
+interface CliOpts {
+  // 成功回执裁剪：写操作只留结果（过滤 [N/M] 步骤日志 + 截取尾部），只读操作/失败保留全量
+  summaryOnly?: boolean;
+}
+async function cli(args: string[], cred: Cred, opts: CliOpts = {}) {
   let r: CliResult;
   try {
     // per-账号串行（同一 BIP 账号排队，防止并发登录互踢）+ 全局并发上限（保护本机）
@@ -150,7 +154,7 @@ async function cli(args: string[], cred: Cred) {
   const parts: string[] = [];
   if (r.stdout.trim()) parts.push(r.stdout.trim());
   if (r.stderr.trim()) parts.push(`(stderr) ${r.stderr.trim()}`);
-  const text = parts.join("\n") || "(无输出)";
+  let text = parts.join("\n") || "(无输出)";
 
   if (r.timedOut) {
     return {
@@ -160,6 +164,10 @@ async function cli(args: string[], cred: Cred) {
   }
   if (r.code !== 0) {
     return { content: [{ type: "text" as const, text }], isError: true };
+  }
+  if (opts.summaryOnly) {
+    const lines = text.split("\n").filter((l) => !/^\s*\[\d+\/\d+\]/.test(l));
+    text = lines.slice(-15).join("\n");
   }
   return { content: [{ type: "text" as const, text }] };
 }
@@ -258,7 +266,7 @@ function createServer(): McpServer {
       if (project_id) args.push("--project-id", project_id);
       if (hours !== undefined) args.push("--hours", String(hours));
       if (cost_org) args.push("--cost-org", cost_org);
-      return cli(args, { username, password });
+      return cli(args, { username, password }, { summaryOnly: true });
     }
   );
 
@@ -296,7 +304,7 @@ function createServer(): McpServer {
       if (phase_id) args.push("--phase-id", phase_id);
       if (project_id) args.push("--project-id", project_id);
       if (hours !== undefined) args.push("--hours", String(hours));
-      return cli(args, { username, password });
+      return cli(args, { username, password }, { summaryOnly: true });
     }
   );
 
@@ -313,7 +321,7 @@ function createServer(): McpServer {
       const args = [];
       if (date) args.push("-d", date);
       for (const item of items) args.push("--item", item);
-      return cli(args, { username, password });
+      return cli(args, { username, password }, { summaryOnly: true });
     }
   );
 
@@ -325,7 +333,7 @@ function createServer(): McpServer {
       ...CRED,
       doc_no: z.string().describe("报工单单号，如 RPT20260701001"),
     },
-    async ({ username, password, doc_no }) => cli(["--delete-doc", doc_no], { username, password })
+    async ({ username, password, doc_no }) => cli(["--delete-doc", doc_no], { username, password }, { summaryOnly: true })
   );
 
   // 10. 撤销审批
@@ -336,7 +344,7 @@ function createServer(): McpServer {
       ...CRED,
       doc_no: z.string().describe("报工单单号，如 RPT20260701001"),
     },
-    async ({ username, password, doc_no }) => cli(["--revoke-doc", doc_no], { username, password })
+    async ({ username, password, doc_no }) => cli(["--revoke-doc", doc_no], { username, password }, { summaryOnly: true })
   );
 
   // 11. 同步选项快照

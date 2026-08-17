@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config import AUDIT_STATUS_MAP, DEFAULT_STD_HOURS, SCAN_DAYS
-from login import bip_login
+from login import get_bip_session
 from query import (
     query_projects,
     query_phases,
@@ -203,6 +203,14 @@ def build_form_payload(session: requests.Session, cid: str, eid: str, date_str: 
     if dept_tasks:
         recent["phase_id"] = dept_tasks[0]["value"]
         recent["phase_label"] = dept_tasks[0]["label"]
+    # 最近一次报工内容（预填参考；记录按日期倒序取最新一条）
+    try:
+        rows = query_submitted_reports(session, cid, eid, doc_no="RPT")
+        if rows:
+            rows = sorted(rows, key=lambda r: r.get("ReportDate", ""), reverse=True)
+            recent["content"] = (rows[0].get("ReportDesc") or "").strip()
+    except Exception:
+        pass
     # 4. 输出表单元数据（标记包裹，便于后端提取）；rows 覆盖全部待报日，标准/加班工时分开
     first = date_rows[0] if date_rows else ("", "", "")
     # 5. 历史项目 → 阶段/任务 预加载（项目类需先选项目才能查任务；历史项目数量少可预取）
@@ -737,17 +745,10 @@ def main() -> None:
         print("❌ 缺少密码，请用 -p 参数或设置环境变量 BIP_PASSWORD")
         sys.exit(1)
 
-    # ── 登录 ──
+    # ── 登录（复用本机 TTL 内的会话缓存，同一用户连续操作只登录一次） ──
     print("🔐 正在登录 BIP...")
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Origin": "http://10.10.10.247",
-        "Referer": "http://10.10.10.247/powerbip/",
-    })
     try:
-        login_result = bip_login(session, username, password)
+        session, login_result = get_bip_session(username, password)
     except Exception as e:
         print(f"❌ 登录失败: {e}")
         sys.exit(1)
