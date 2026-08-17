@@ -1,6 +1,6 @@
 # BIP 工时填报 MCP 服务（bip-timesheet-mcp）
 
-BIP 工时填报的 **MCP 服务端**（bip-timesheet-mcp）。把原 skill 的 CLI 核心（`python/report.py` 及配套模块）封装为 10 个 MCP 工具，同时支持 **streamable http** 与 **stdio** 两种传输。
+BIP 工时填报的 **MCP 服务端**（bip-timesheet-mcp）。把原 skill 的 CLI 核心（`python/report.py` 及配套模块）封装为 11 个 MCP 工具，同时支持 **streamable http** 与 **stdio** 两种传输。
 
 > 🎯 **为什么这么做**：原 skill 的 `scripts/` 里包含 BIP 内部地址、AES 加密密钥、公司 ID 等敏感配置。把它封装成 MCP 服务后，**核心代码与内部配置只存在于服务器端**，分发给用户的 skill 只描述工具、零泄密。
 
@@ -41,10 +41,11 @@ npm start           # 默认 both：HTTP(:51889/mcp) + stdio 同时启动
 
 > 不在服务器配置 BIP 默认凭据：账号密码由每个用户调用工具时**必传**（`username` / `password`），服务器端不存明文密码。
 
-## 工具（10 个）
+## 工具（11 个）
 
 | 工具 | 说明 | 关键参数 |
 |---|---|---|
+| `bip_preview` | 报工主入口：一次返回 考勤四分类 + 报工单概况 + 表单数据 JSON | — |
 | `bip_scan` | 扫描最近 30 天考勤（待报工/已报工/异常/无考勤） | — |
 | `bip_submitted` | 查询已提交报工单及审批状态 | `date` `audit_status` `doc_no` |
 | `bip_list_phases` | 查询可选任务/阶段列表 | `work_type` `project_id` |
@@ -55,6 +56,8 @@ npm start           # 默认 both：HTTP(:51889/mcp) + stdio 同时启动
 | `bip_delete_doc` | 删除报工单（审批中自动先撤销） | `doc_no` |
 | `bip_revoke_doc` | 撤销审批 | `doc_no` |
 | `bip_sync_options` | 同步选项快照到 options.json | — |
+
+报工流程：`bip_preview`（一次拿齐分析+表单）→ 用户确认 → `bip_report` / `bip_split_report` / `bip_auto_report`，全程仅 2 次 CLI 调用；`bip_scan`/`bip_submitted`/`bip_form_data` 仅在单独查询意图时按需调用。
 
 每个工具**必传** `username` / `password`（各用户自己的 BIP 账号），服务器端不提供默认凭据。
 

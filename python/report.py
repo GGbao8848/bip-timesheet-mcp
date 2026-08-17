@@ -73,6 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cost-org", default="", help="成本部门 ID（默认: 项目接口返回或空）")
     p.add_argument("--scan", action="store_true",
                    help=f"仅扫描最近{SCAN_DAYS}天考勤，不提交")
+    p.add_argument("--preview", action="store_true",
+                   help="一次输出：考勤四分类 + 报工单概况 + 报工表单数据 JSON（报工主入口）")
     p.add_argument("--form-data", action="store_true",
                    help="输出报工表单数据 JSON（系统据此渲染表单卡片）")
     p.add_argument("--sync-options", action="store_true",
@@ -164,6 +166,84 @@ def load_or_sync_options(session: requests.Session, cid: str, eid: str) -> dict:
     except Exception:
         pass
     return sync_options(session, cid, eid)
+
+
+def build_form_payload(session: requests.Session, cid: str, eid: str, date_str: str = "",
+                       scan_result: tuple[list, list] | None = None) -> dict:
+    """构造报工表单元数据（--form-data / --preview 共用）。
+
+    日期行集合：指定则查该日，否则取所有待报日/考勤异常日（多天 → 多行表单）。
+    scan_result: (pending, abnormal) 已扫描结果，避免 preview 重复扫描 30 天考勤。
+    """
+    # 1. 日期行集合
+    date_rows: list[tuple[str, str, str]] = []  # (date, std_hours, ovt_hours)
+    if date_str:
+        attn = query_attendance(session, cid, eid, date_str)
+        std = float(attn.get("StdHours", 0) or 0)
+        ovt = float(attn.get("OvtHours", 0) or 0)
+        date_rows = [(date_str, str(std) if std > 0 else "", str(ovt) if ovt > 0 else "0")]
+    else:
+        if scan_result:
+            pending, abnormal = scan_result
+        else:
+            pending, _reported, abnormal, _no_att = scan_attendance(session, cid, eid)
+        if pending:
+            date_rows = [(d, str(std) if std > 0 else "", str(ovt) if ovt > 0 else "0") for d, std, ovt, _on, _off in pending]
+        elif abnormal:
+            date_rows = [(d, "", "") for d, _on, _off, _reason in abnormal]
+        else:
+            print("❌ 近 30 天无待报工/考勤异常日期，无需报工")
+            sys.exit(1)
+    # 2. 选项快照（缺失/过期自动刷新）
+    options = load_or_sync_options(session, cid, eid)
+    # 3. 最近报工模式（预填参考：用户报工与历史大概率一致，主要改内容/工时/拆分）
+    first_std = date_rows[0][1] if date_rows else ""
+    recent = {"work_type": "部门工作", "phase_id": "", "phase_label": "", "content": "", "std_hours": first_std or "8", "ovt_hours": "0"}
+    dept_tasks = options["commonTasks"].get("部门工作") or []
+    if dept_tasks:
+        recent["phase_id"] = dept_tasks[0]["value"]
+        recent["phase_label"] = dept_tasks[0]["label"]
+    # 4. 输出表单元数据（标记包裹，便于后端提取）；rows 覆盖全部待报日，标准/加班工时分开
+    first = date_rows[0] if date_rows else ("", "", "")
+    # 5. 历史项目 → 阶段/任务 预加载（项目类需先选项目才能查任务；历史项目数量少可预取）
+    proj_date = first[0] or (dt_date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    project_tasks: dict[str, list] = {}
+    for proj in options.get("recentProjects", []) or []:
+        pid = (proj.get("value") or "").strip()
+        if not pid:
+            continue
+        try:
+            tasks = _collect_tasks(session, cid, eid, proj_date, "项目工时", pid)
+        except Exception:
+            tasks = []
+        if tasks:
+            project_tasks[pid] = tasks
+    return {
+        "date": first[0],
+        "hours": first[1],
+        "rows": [{"date": d, "std_hours": s, "ovt_hours": o} for d, s, o in date_rows],
+        "workTypes": options["workTypes"],
+        "commonTasks": options["commonTasks"],
+        "recentProjects": options["recentProjects"],
+        "projectTasks": project_tasks,
+        "recent": recent,
+    }
+
+
+def print_submitted_summary(session: requests.Session, cid: str, eid: str) -> None:
+    """输出已提交报工单概况（按审批状态计数，--preview 用，轻量不刷屏）。"""
+    rows = query_submitted_reports(session, cid, eid, doc_no="RPT")
+    if not rows:
+        print("📋 无已提交报工单。")
+        return
+    counts: dict[str, int] = {}
+    for r in rows:
+        s = str(r.get("AuditStatus", "") or "")
+        counts[s] = counts.get(s, 0) + 1
+    label = " / ".join(
+        f"{AUDIT_STATUS_MAP.get(code, '未知')} {n}条" for code, n in sorted(counts.items())
+    )
+    print(f"📋 已提交报工单概况（最近一批 {len(rows)} 条，接口不支持翻页）: {label}")
 
 
 def print_scan_results(pending: list, reported: list, abnormal: list, no_attendance: list) -> None:
@@ -724,59 +804,20 @@ def main() -> None:
         print(f"✅ 已生成选项快照: {OPTIONS_FILE}")
         return
 
+    # ── --preview: 一次输出 考勤四分类 + 报工单概况 + 表单数据（报工主入口） ──
+    if args.preview:
+        print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
+        pending, reported, abnormal, no_att = scan_attendance(session, cid, eid)
+        print_scan_results(pending, reported, abnormal, no_att)
+        print("🔎 查询已提交报工单概况...")
+        print_submitted_summary(session, cid, eid)
+        payload = build_form_payload(session, cid, eid, args.date or "", scan_result=(pending, abnormal))
+        print("【表单数据】" + json.dumps(payload, ensure_ascii=False) + "【表单数据结束】")
+        return
+
     # ── --form-data: 输出报工表单元数据（系统据此渲染表格型表单卡片） ──
     if args.form_data:
-        date_str = args.date or ""
-        # 1. 日期行集合：指定则查该日，否则取所有待报日/考勤异常日（多天 → 多行表单）
-        date_rows: list[tuple[str, str, str]] = []  # (date, std_hours, ovt_hours)
-        if date_str:
-            attn = query_attendance(session, cid, eid, date_str)
-            std = float(attn.get("StdHours", 0) or 0)
-            ovt = float(attn.get("OvtHours", 0) or 0)
-            date_rows = [(date_str, str(std) if std > 0 else "", str(ovt) if ovt > 0 else "0")]
-        else:
-            pending, _reported, abnormal, _no_att = scan_attendance(session, cid, eid)
-            if pending:
-                date_rows = [(d, str(std) if std > 0 else "", str(ovt) if ovt > 0 else "0") for d, std, ovt, _on, _off in pending]
-            elif abnormal:
-                date_rows = [(d, "", "") for d, _on, _off, _reason in abnormal]
-            else:
-                print("❌ 近 30 天无待报工/考勤异常日期，无需报工")
-                sys.exit(1)
-        # 2. 选项快照（缺失/过期自动刷新）
-        options = load_or_sync_options(session, cid, eid)
-        # 3. 最近报工模式（预填参考：用户报工与历史大概率一致，主要改内容/工时/拆分）
-        first_std = date_rows[0][1] if date_rows else ""
-        recent = {"work_type": "部门工作", "phase_id": "", "phase_label": "", "content": "", "std_hours": first_std or "8", "ovt_hours": "0"}
-        dept_tasks = options["commonTasks"].get("部门工作") or []
-        if dept_tasks:
-            recent["phase_id"] = dept_tasks[0]["value"]
-            recent["phase_label"] = dept_tasks[0]["label"]
-        # 4. 输出表单元数据（标记包裹，便于后端提取）；rows 覆盖全部待报日，标准/加班工时分开
-        first = date_rows[0] if date_rows else ("", "", "")
-        # 5. 历史项目 → 阶段/任务 预加载（项目类需先选项目才能查任务；历史项目数量少可预取）
-        proj_date = first[0] or (dt_date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-        project_tasks: dict[str, list] = {}
-        for proj in options.get("recentProjects", []) or []:
-            pid = (proj.get("value") or "").strip()
-            if not pid:
-                continue
-            try:
-                tasks = _collect_tasks(session, cid, eid, proj_date, "项目工时", pid)
-            except Exception:
-                tasks = []
-            if tasks:
-                project_tasks[pid] = tasks
-        payload = {
-            "date": first[0],
-            "hours": first[1],
-            "rows": [{"date": d, "std_hours": s, "ovt_hours": o} for d, s, o in date_rows],
-            "workTypes": options["workTypes"],
-            "commonTasks": options["commonTasks"],
-            "recentProjects": options["recentProjects"],
-            "projectTasks": project_tasks,
-            "recent": recent,
-        }
+        payload = build_form_payload(session, cid, eid, args.date or "")
         print("【表单数据】" + json.dumps(payload, ensure_ascii=False) + "【表单数据结束】")
         return
 

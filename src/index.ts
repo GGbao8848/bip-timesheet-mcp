@@ -223,19 +223,17 @@ function createServer(): McpServer {
     }
   );
 
-  // 4. 生成报工表单数据
+  // 4. 报工预览（报工主入口）：一次返回 考勤四分类 + 报工单概况 + 表单数据
   server.tool(
-    "bip_form_data",
-    "生成报工表单数据：日期行（待报工/考勤异常日，带考勤工时）、工作类别、常用任务、历史项目、最近报工模式。输出以【表单数据】...【表单数据结束】包裹的 JSON，agent 据此渲染表单卡片供用户确认。",
+    "bip_preview",
+    "报工前的综合预览，一次返回：① 考勤四分类（待报工/已报工/异常/无考勤）② 已提交报工单概况（按审批状态计数）③ 【表单数据】JSON（日期行/工作类别/常用任务/历史项目/最近报工模式）。agent 据此渲染表格+表单供用户确认，无需再调 bip_scan/bip_submitted/bip_form_data。",
     {
       ...CRED,
       date: z.string().describe("指定待报工日期 YYYY-MM-DD（可选，默认取最近待报日/异常日）").optional(),
-      work_type: z.string().describe("工作类别（可选，默认部门工作）").optional(),
     },
-    async ({ username, password, date, work_type }) => {
-      const args = ["--form-data"];
+    async ({ username, password, date }) => {
+      const args = ["--preview"];
       if (date) args.push("-d", date);
-      if (work_type) args.push("-w", work_type);
       return cli(args, { username, password });
     }
   );
@@ -264,7 +262,24 @@ function createServer(): McpServer {
     }
   );
 
-  // 6. 批量自动报工
+  // 6. 生成报工表单数据
+  server.tool(
+    "bip_form_data",
+    "生成报工表单数据：日期行（待报工/考勤异常日，带考勤工时）、工作类别、常用任务、历史项目、最近报工模式。输出以【表单数据】...【表单数据结束】包裹的 JSON，agent 据此渲染表单卡片供用户确认。",
+    {
+      ...CRED,
+      date: z.string().describe("指定待报工日期 YYYY-MM-DD（可选，默认取最近待报日/异常日）").optional(),
+      work_type: z.string().describe("工作类别（可选，默认部门工作）").optional(),
+    },
+    async ({ username, password, date, work_type }) => {
+      const args = ["--form-data"];
+      if (date) args.push("-d", date);
+      if (work_type) args.push("-w", work_type);
+      return cli(args, { username, password });
+    }
+  );
+
+  // 7. 批量自动报工
   server.tool(
     "bip_auto_report",
     "批量自动报工所有待报工日期（最近30天）。所有日期使用相同阶段和内容，不同任务需分开报。考勤异常日会跳过，需手动指定 hours 单独报工。",
@@ -285,7 +300,7 @@ function createServer(): McpServer {
     }
   );
 
-  // 7. 拆分报工
+  // 8. 拆分报工
   server.tool(
     "bip_split_report",
     "拆分报工（单日多任务，单 DocNo 多明细）。items 为管道分隔字符串数组，格式：部门工作=『类别|任务|内容|标准工时|加班工时』(5段)；项目类=『类别|项目ID|任务|内容|标准工时|加班工时』(6段)。可重复多条。",
@@ -302,7 +317,7 @@ function createServer(): McpServer {
     }
   );
 
-  // 8. 删除报工单
+  // 9. 删除报工单
   server.tool(
     "bip_delete_doc",
     "删除指定报工单。审批中(4)会自动先撤销再删除；审批通过(8)拒绝删除。",
@@ -313,7 +328,7 @@ function createServer(): McpServer {
     async ({ username, password, doc_no }) => cli(["--delete-doc", doc_no], { username, password })
   );
 
-  // 9. 撤销审批
+  // 10. 撤销审批
   server.tool(
     "bip_revoke_doc",
     "仅撤销指定报工单的审批，不删除。仅对审批中(4)状态有效。",
@@ -324,7 +339,7 @@ function createServer(): McpServer {
     async ({ username, password, doc_no }) => cli(["--revoke-doc", doc_no], { username, password })
   );
 
-  // 10. 同步选项快照
+  // 11. 同步选项快照
   server.tool(
     "bip_sync_options",
     "同步报工选项快照（工作类别/常用任务/历史项目）到 options.json。一般无需手动调用，bip_form_data 会自动按需同步。",
@@ -389,6 +404,7 @@ function renderHelpPage(): string {
   );
 
   const tools = [
+    ["bip_preview", "报工预览：考勤四分类+报工单概况+表单数据（一次返回）"],
     ["bip_scan", "扫描最近30天考勤（四分类）"],
     ["bip_submitted", "查询已提交报工单及审批状态"],
     ["bip_list_phases", "查询可选任务/阶段列表"],
@@ -434,7 +450,7 @@ ${PAGE_CSS}
   </div>
 
   <div class="card">
-    <h2>工具（10 个）</h2>
+    <h2>工具（11 个）</h2>
     <table>
       <tr><th>名称</th><th>说明</th></tr>
       ${tools.map(([n, d]) => `<tr><td><code>${n}</code></td><td>${d}</td></tr>`).join("")}
