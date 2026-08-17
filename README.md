@@ -77,6 +77,8 @@ pm2 stop bip-timesheet-mcp        # 停止
 传输模式决策优先级：命令行 `--transport` > 环境变量 `TRANSPORT` > pm2 自动检测 > `both`。
 
 > 开机自启：Windows 上 pm2 不支持 `pm2 startup`，需创建计划任务在登录时执行 `pm2 resurrect`（如 `schtasks /Create /TN pm2-resurrect /TR "cmd /c C:\Users\<user>\AppData\Roaming\npm\pm2.cmd resurrect" /SC ONLOGON`）。
+>
+> 📄 完整部署流程（pm2 安装 → 启动 → 验证 → 开机自启 → 日常运维 → 更新 → 排错）：见 [`docs/pm2-deploy.md`](docs/pm2-deploy.md)。
 
 ## 自测
 
