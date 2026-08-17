@@ -145,6 +145,18 @@ def query_submitted_reports(
             f"  HTTP {resp.status_code}: {resp.text[:300]}"
         )
 
+    # 会话过期 / 接口报错必须抛错，绝不能静默返回空列表——
+    # 否则会把"查询失败"误当成"无报工记录"，导致与考勤"已报工"结论不一致。
+    # 成功信封有两种：PM300300 用 {"result": {...}}（无顶层 Ret）；RPT100001D 用 Ret="1"。
+    ret = str(data.get("Ret", ""))
+    if ret != "1" and data.get("result") is None:
+        msg = data.get("Msg", "未知错误")
+        code = data.get("Code", "")
+        raise RuntimeError(
+            f"BIP 已提交报工单查询失败 (Ret={ret}, Code={code})\n"
+            f"  接口: {url}\n"
+            f"  消息: {msg}"
+        )
     return _parse_bip_table_rows(data)
 
 

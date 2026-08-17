@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config import AUDIT_STATUS_MAP, DEFAULT_STD_HOURS, SCAN_DAYS
-from login import get_bip_session
+from login import get_bip_session, force_relogin
 from query import (
     query_projects,
     query_phases,
@@ -239,8 +239,11 @@ def build_form_payload(session: requests.Session, cid: str, eid: str, date_str: 
 
 
 def print_submitted_summary(session: requests.Session, cid: str, eid: str) -> None:
-    """输出已提交报工单概况（按审批状态计数，--preview 用，轻量不刷屏）。"""
-    rows = query_submitted_reports(session, cid, eid, doc_no="RPT")
+    """输出已提交报工单概况（按审批状态计数，--preview 用，轻量不刷屏）。
+
+    使用与 --submitted 相同的完整枚举（按状态分次查询合并），保证与明细口径一致。
+    """
+    rows = query_submitted_reports_all(session, cid, eid)
     if not rows:
         print("📋 无已提交报工单。")
         return
@@ -251,7 +254,99 @@ def print_submitted_summary(session: requests.Session, cid: str, eid: str) -> No
     label = " / ".join(
         f"{AUDIT_STATUS_MAP.get(code, '未知')} {n}条" for code, n in sorted(counts.items())
     )
-    print(f"📋 已提交报工单概况（最近一批 {len(rows)} 条，接口不支持翻页）: {label}")
+    print(f"📋 已提交报工单概况（近6个月，按月分次查询合并，共 {len(rows)} 条）: {label}")
+
+
+def print_submitted_detail(
+    session: requests.Session,
+    cid: str,
+    eid: str,
+    report_date: str = "",
+    audit_status: str = "",
+    doc_no: str = "",
+) -> None:
+    """输出已提交报工单明细（--submitted 用）。
+
+    无筛选时按审批状态分次查询并合并去重，避免 BIP 接口只返回一个批次
+    （约 20 条）导致最新/较近记录被旧批次挤掉。
+    """
+    rows = query_submitted_reports_all(session, cid, eid, report_date=report_date, audit_status=audit_status, doc_no=doc_no)
+    if not rows:
+        print("✅ 未查询到已提交报工单。")
+        return
+    rows.sort(key=lambda r: r.get("ReportDate", ""), reverse=True)
+    print(f"✅ 已查询到 {len(rows)} 条已提交报工单。")
+    print("\n已提交报工单列表:")
+    for idx, row in enumerate(rows, 1):
+        std_hours = row.get("StdWorkTime", "") or row.get("StdHours", "")
+        ovt_hours = row.get("OvtWorkTime", "") or row.get("OvtHours", "")
+        real_hours = row.get("RealWorkTime", "") or row.get("RealHours", "")
+        hours_parts = []
+        if real_hours:
+            hours_parts.append(f"总计 {real_hours}h")
+        if std_hours or ovt_hours:
+            hours_parts.append(f"标准 {std_hours}h 加班 {ovt_hours}h")
+        hours_label = f"  工时: {' / '.join(hours_parts)}" if hours_parts else ""
+        print("\n" + "-" * 55)
+        print(f"[{idx}] DocNo: {row.get('DocNo', '')}")
+        print(f"    ReportDate: {row.get('ReportDate', '')}{hours_label}")
+        status_code = str(row.get('AuditStatus', '') or "")
+        status_label = AUDIT_STATUS_MAP.get(status_code, "")
+        if status_label:
+            print(f"    AuditStatus: {status_code} ({status_label})")
+        else:
+            print(f"    AuditStatus: {status_code}")
+        print(f"    ReportStatus: {row.get('ReportStatus', '')}")
+        print(f"    创建时间: {row.get('CreateDate', '')}  创建人: {row.get('CreateUsr', '')}")
+        print(f"    审核时间: {row.get('AuditDate', '')}  审核人: {row.get('AuditUsr', '')}")
+        desc = row.get('ReportDesc', '') or ''
+        if len(desc) > 120:
+            desc = desc[:117] + '...'
+        print(f"    ReportDesc: {desc}")
+
+
+def query_submitted_reports_all(
+    session: requests.Session,
+    cid: str,
+    eid: str,
+    report_date: str = "",
+    audit_status: str = "",
+    doc_no: str = "",
+    months: int = 6,
+) -> list[dict]:
+    """完整枚举已提交报工单：支持筛选，无筛选时按月分次查询合并。
+
+    BIP 接口每次只返回一个批次（约 20 条）且批次内容不稳定，无筛选时直接查会
+    漏掉最近/较近记录。而 DocNo 前缀按 LIKE 匹配且结果确定性（验证：RPT2608 →
+    当月 10 条完整）。因此无筛选查询按「近 N 个月的 RPTyyyyMM 前缀」分次查询、
+    按 DocNo 去重合并；某月恰好返回满批次（20 条）时再按审批状态补查该月，
+    防止单月记录被截断。筛选查询（日期/状态/单号）直接单次查询即可。
+    """
+    if audit_status or report_date or doc_no:
+        rows = query_submitted_reports(session, cid, eid, report_date=report_date, audit_status=audit_status, doc_no=doc_no)
+        return list(rows)
+
+    merged: dict[str, dict] = {}
+    today = dt_date.today()
+    month_codes: list[str] = []
+    y, m = today.year, today.month
+    for _ in range(months):
+        month_codes.append(f"{y % 100:02d}{m:02d}")  # DocNo 前缀为 RPT+YYMM
+        m -= 1
+        if m == 0:
+            y -= 1
+            m = 12
+    for ym in month_codes:  # 从近到远
+        prefix = f"RPT{ym}"
+        rows = query_submitted_reports(session, cid, eid, doc_no=prefix)
+        for r in rows:
+            merged[str(r.get("DocNo", ""))] = r
+        # 单月达到批次上限（20 条）→ 按审批状态分次补查该月，覆盖被截断的记录
+        if len(rows) >= 20:
+            for code in ("1", "2", "32", "4", "8", "16"):
+                for r in query_submitted_reports(session, cid, eid, audit_status=code, doc_no=prefix):
+                    merged[str(r.get("DocNo", ""))] = r
+    return list(merged.values())
 
 
 def print_scan_results(pending: list, reported: list, abnormal: list, no_attendance: list) -> None:
@@ -745,6 +840,43 @@ def main() -> None:
         print("❌ 缺少密码，请用 -p 参数或设置环境变量 BIP_PASSWORD")
         sys.exit(1)
 
+    # ── 会话过期检测与自动重登录 ──
+    # BIP 为单会话：缓存复用的登录态可能已被别处登录踢下线（接口报"登录已过期"）。
+    # 检测到后强制重新登录并重试一次；写操作（报工/删除/撤销/状态修改）不重试，
+    # 避免重复提交。用户显式指定的删除/撤销单号原样保留。
+    SESSION_EXPIRED_MSGS = (
+        "登录已过期或者已经在其他地方登录",
+        "登录已过期",
+        "会话过期",
+        "请重新登录",
+    )
+
+    def _session_expired(msg: str) -> bool:
+        return any(k in msg for k in SESSION_EXPIRED_MSGS)
+
+    def _is_write() -> bool:
+        # 只读操作：preview / scan / submitted / form-data / list-phases / sync-options
+        if args.preview or args.scan or args.submitted or args.form_data or args.list_phases or args.sync_options:
+            return False
+        # 其余（--auto / --item / 单日报工 / --delete-doc / --revoke-doc）均为写操作，不自动重试
+        return True
+
+    def call_with_retry(session_obj: requests.Session, call, *a, **kw):
+        """执行调用；会话过期时强制重登录后重试一次。写操作不重试（防重复提交）。
+
+        call 的首个位置参数必须是 session；*a 为其余位置参数（不含 session）。
+        """
+        try:
+            return call(session_obj, *a, **kw)
+        except RuntimeError as e:
+            if _session_expired(str(e)) and not _is_write():
+                print(f"  ⚠️ 会话已过期，重新登录后重试...")
+                session_obj, _info = force_relogin(username, password)
+                return call(session_obj, *a, **kw)
+            raise
+
+    _q = lambda s, fn, *a, **kw: call_with_retry(s, fn, *a, **kw)
+
     # ── 登录（复用本机 TTL 内的会话缓存，同一用户连续操作只登录一次） ──
     print("🔐 正在登录 BIP...")
     try:
@@ -770,7 +902,7 @@ def main() -> None:
             sys.exit(1)
 
         # 主渠道：GETCANREPORTTASKSLISTS（用户已配置的任务）
-        primary = query_can_report_tasks(session, cid, eid, date_str, args.work_type)
+        primary = _q(session, query_can_report_tasks, cid, eid, date_str, args.work_type)
         if primary:
             print(f"📋 {args.work_type} 常用任务/阶段 ({len(primary)} 个):")
             for t in primary:
@@ -781,7 +913,7 @@ def main() -> None:
             print(f"📋 {args.work_type} 无常用任务，查询全部可选列表...")
 
         # 保底：TaskList（全量任务）
-        tasks = query_phases(session, cid, pid, date_str, args.work_type)
+        tasks = _q(session, query_phases, cid, pid, date_str, args.work_type)
         if tasks:
             label = "全部" if primary else ""
             print(f"📋 {args.work_type} {label}可选任务/阶段 ({len(tasks)} 个):".replace("  ", " "))
@@ -794,31 +926,31 @@ def main() -> None:
     # ── --scan: 仅扫描考勤 ──
     if args.scan:
         print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
-        pending, reported, abnormal, no_att = scan_attendance(session, cid, eid)
+        pending, reported, abnormal, no_att = _q(session, scan_attendance, cid, eid)
         print_scan_results(pending, reported, abnormal, no_att)
         return
 
     # ── --sync-options: 全量拉取静态选项快照 ──
     if args.sync_options:
         print("🔍 同步报工选项快照...")
-        sync_options(session, cid, eid)
+        _q(session, sync_options, cid, eid)
         print(f"✅ 已生成选项快照: {OPTIONS_FILE}")
         return
 
     # ── --preview: 一次输出 考勤四分类 + 报工单概况 + 表单数据（报工主入口） ──
     if args.preview:
         print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
-        pending, reported, abnormal, no_att = scan_attendance(session, cid, eid)
+        pending, reported, abnormal, no_att = _q(session, scan_attendance, cid, eid)
         print_scan_results(pending, reported, abnormal, no_att)
         print("🔎 查询已提交报工单概况...")
-        print_submitted_summary(session, cid, eid)
-        payload = build_form_payload(session, cid, eid, args.date or "", scan_result=(pending, abnormal))
+        _q(session, print_submitted_summary, cid, eid)
+        payload = _q(session, build_form_payload, cid, eid, args.date or "", scan_result=(pending, abnormal))
         print("【表单数据】" + json.dumps(payload, ensure_ascii=False) + "【表单数据结束】")
         return
 
     # ── --form-data: 输出报工表单元数据（系统据此渲染表格型表单卡片） ──
     if args.form_data:
-        payload = build_form_payload(session, cid, eid, args.date or "")
+        payload = _q(session, build_form_payload, cid, eid, args.date or "")
         print("【表单数据】" + json.dumps(payload, ensure_ascii=False) + "【表单数据结束】")
         return
 
@@ -826,7 +958,7 @@ def main() -> None:
     if args.delete_doc:
         print(f"🗑️ 删除报工单 {args.delete_doc}...")
         # 先查状态，审批通过(8)不可删除
-        rows = query_submitted_reports(session, cid, eid, doc_no=args.delete_doc)
+        rows = _q(session, query_submitted_reports, cid, eid, doc_no=args.delete_doc)
         if rows:
             status_code = str(rows[0].get("AuditStatus", "") or "")
             if status_code == "8":
@@ -858,12 +990,7 @@ def main() -> None:
     # ── --revoke-doc: 撤销指定报工单的审批 ──
     if args.revoke_doc:
         print(f"↩️ 撤销审批 {args.revoke_doc}...")
-        rows = query_submitted_reports(
-            session,
-            cid,
-            eid,
-            doc_no=args.revoke_doc,
-        )
+        rows = _q(session, query_submitted_reports, cid, eid, doc_no=args.revoke_doc)
         if not rows:
             print(f"❌ 未找到 DocNo={args.revoke_doc} 的报工单。")
             return
@@ -883,49 +1010,13 @@ def main() -> None:
     # ── --submitted: 查询已提交报工单 ──
     if args.submitted:
         print("🔎 查询已提交报工单...")
-        # BIP 接口对已提交报工单默认只返回最早的一批（约 20 条），最新记录会缺失。
-        # 默认用 DocNo 前缀（"RPT"）查询，让接口直接返回最近批次；指定 --doc-no 时用精确值。
-        doc_no = args.doc_no or "RPT"
-        rows = query_submitted_reports(
-            session,
-            cid,
-            eid,
+        # 无筛选时按审批状态分次查询合并，保证最近记录不遗漏（详见 query_submitted_reports_all）
+        print_submitted_detail(
+            session, cid, eid,
             report_date=args.date or "",
             audit_status=args.audit_status,
-            doc_no=doc_no,
+            doc_no=args.doc_no or "",
         )
-        if not rows:
-            print("✅ 未查询到已提交报工单。")
-            return
-        rows.sort(key=lambda r: r.get("ReportDate", ""), reverse=True)
-        print(f"✅ 已查询到 {len(rows)} 条已提交报工单。")
-        print("\n已提交报工单列表:")
-        for idx, row in enumerate(rows, 1):
-            std_hours = row.get("StdWorkTime", "") or row.get("StdHours", "")
-            ovt_hours = row.get("OvtWorkTime", "") or row.get("OvtHours", "")
-            real_hours = row.get("RealWorkTime", "") or row.get("RealHours", "")
-            hours_parts = []
-            if real_hours:
-                hours_parts.append(f"总计 {real_hours}h")
-            if std_hours or ovt_hours:
-                hours_parts.append(f"标准 {std_hours}h 加班 {ovt_hours}h")
-            hours_label = f"  工时: {' / '.join(hours_parts)}" if hours_parts else ""
-            print("\n" + "-" * 55)
-            print(f"[{idx}] DocNo: {row.get('DocNo', '')}")
-            print(f"    ReportDate: {row.get('ReportDate', '')}{hours_label}")
-            status_code = str(row.get('AuditStatus', '') or "")
-            status_label = AUDIT_STATUS_MAP.get(status_code, "")
-            if status_label:
-                print(f"    AuditStatus: {status_code} ({status_label})")
-            else:
-                print(f"    AuditStatus: {status_code}")
-            print(f"    ReportStatus: {row.get('ReportStatus', '')}")
-            print(f"    创建时间: {row.get('CreateDate', '')}  创建人: {row.get('CreateUsr', '')}")
-            print(f"    审核时间: {row.get('AuditDate', '')}  审核人: {row.get('AuditUsr', '')}")
-            desc = row.get('ReportDesc', '') or ''
-            if len(desc) > 120:
-                desc = desc[:117] + '...'
-            print(f"    ReportDesc: {desc}")
         return
 
     # ── --auto: 批量自动报工（只提交待报工日期） ──
@@ -938,7 +1029,7 @@ def main() -> None:
             sys.exit(1)
         content = args.content
         print(f"🔍 扫描考勤 (最近{SCAN_DAYS}天)...")
-        pending, reported, abnormal, no_att = scan_attendance(session, cid, eid)
+        pending, reported, abnormal, no_att = _q(session, scan_attendance, cid, eid)
         print_scan_results(pending, reported, abnormal, no_att)
 
         if not pending:

@@ -94,6 +94,15 @@ def get_bip_session(username: str, password: str) -> tuple[requests.Session, dic
             "EmpName": unquote(session.cookies.get("username", "")),
             "CompanyName": unquote(session.cookies.get("companyname", "")),
         }
+    return force_relogin(username, password)
+
+
+def force_relogin(username: str, password: str) -> tuple[requests.Session, dict[str, Any]]:
+    """绕过缓存强制重新登录，并更新落盘缓存。
+
+    用于会话被服务端踢下线/过期时（BIP 单会话互踢，落盘 cookie 可能已失效），
+    让调用方拿到一个全新可用会话。
+    """
     session = _new_session()
     info = bip_login(session, username, password)
     _save_session(username, session)
