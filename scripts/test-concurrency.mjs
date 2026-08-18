@@ -2,8 +2,10 @@
 //   1) 同账号串行 —— 同一 BIP 账号的两个调用排队执行（BIP 互踢约束）
 //   2) 不同账号并行 —— 互不阻塞
 //   3) 全局并发上限 —— 同时运行的 python 进程数 ≤ MAX_CONCURRENT_CLI
-// 用法：npm run build && node scripts/test-concurrency.mjs
-import { serializedByUser, withConcurrencyLimit, maxConcurrentCli } from "../dist/queue.js";
+// 用法：node scripts/test-concurrency.mjs
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const { serializedByUser, withConcurrencyLimit, maxConcurrentCli } = require("../src/queue.js");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let running = 0;

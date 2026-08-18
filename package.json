@@ -1,28 +1,26 @@
 {
   "name": "bip-timesheet-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "type": "module",
-  "description": "江苏北人 BIP 工时填报 MCP 服务：把 skill 的 CLI 核心封装为 streamable http / stdio 工具，BIP 内部配置（地址/加密/公司）仅存在于服务器端，分发的 skill 不含任何敏感信息",
-  "main": "dist/index.js",
+  "type": "commonjs",
+  "description": "江苏北人 BIP 工时填报 MCP 服务：Keycloak 统一登录 + Token 认证接入 + Web 凭据/密钥管理。Python 核心仅存在于服务器端，分发的 skill 不含任何敏感信息",
+  "main": "src/index.js",
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "dev": "tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test": "node scripts/test-stdio.mjs"
+    "setup-keycloak": "node scripts/setup-keycloak.mjs",
+    "start": "node src/index.js",
+    "test": "node scripts/test-http.mjs"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "adm-zip": "^0.6.0",
+    "better-sqlite3": "^13.0.3",
+    "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
-    "marked": "^18.0.9",
+    "jose": "^5.9.6",
     "zod": "^3.24.1"
-  },
-  "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^22.10.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.0"
   }
 }
