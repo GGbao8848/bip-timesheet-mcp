@@ -16,8 +16,9 @@ module.exports = {
       // 单实例
       instances: 1,
       exec_mode: "fork",
+      // 注意：不要在这里设置 PORT —— pm2 注入的 env 会盖过 .env（config.js 不覆盖
+      // 已存在的环境变量）。端口统一在 .env 的 PORT 配置，与 aimemory 行为一致。
       env: {
-        PORT: "51889",
         NODE_ENV: "production",
       },
       // 日志按时间轮转（保留 7 天，单文件上限 10MB）

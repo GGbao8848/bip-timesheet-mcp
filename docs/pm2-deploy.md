@@ -44,7 +44,7 @@ npm run setup-keycloak
 | `autorestart` | `true` | 崩溃自动重启 |
 | `max_restarts` / `restart_delay` | `10` / `2000ms` | 异常重启上限与间隔，防崩溃循环 |
 | `instances` / `exec_mode` | `1` / `fork` | 单实例进程 |
-| `env.PORT` | `51889` | 服务端口（MCP 端点 `http://<IP>:51889/mcp`，Web 平台同端口） |
+| `env` | 仅 `NODE_ENV=production` | 端口不在这里配——pm2 注入的 env 会盖过 `.env`；端口统一在 `.env` 的 `PORT`（默认 51889，MCP 端点 `http://<IP>:<PORT>/mcp`，Web 平台同端口） |
 | `out_file` / `error_file` | `./logs/out.log` / `./logs/err.log` | 日志文件（相对 `cwd`，即项目根） |
 | `max_size` / `retain` | `10M` / `7` | 日志轮转：单文件上限 10MB，保留 7 天 |
 
@@ -120,7 +120,7 @@ pm2 restart bip-timesheet-mcp
 | 现象 | 排查步骤 |
 |---|---|
 | `pm2 list` 状态 `errored` / 反复重启 | `pm2 logs bip-timesheet-mcp --err` 看错误日志；确认 Node ≥ 20（better-sqlite3 需要预编译二进制） |
-| 端口被占用 / `EACCES` | Windows 上部分端口段被 Hyper-V 保留（`netsh interface ipv4 show excludedportrange protocol=tcp` 查看）；改 `ecosystem.config.cjs` 的 `env.PORT` 避开后重启 |
+| 端口被占用 / `EACCES` | Windows 上部分端口段被 Hyper-V 保留（`netsh interface ipv4 show excludedportrange protocol=tcp` 查看）；改 `.env` 的 `PORT` 避开后 `pm2 restart` |
 | 登录回调报 `missing required aud claim` | 未配置 audience mapper：重跑 `npm run setup-keycloak`（脚本幂等补齐） |
 | Keycloak 登录发起失败 / 网络不通 | 确认 `KEYCLOAK_URL` 可达且为对外端口（非管理端口 9000）；`setup-keycloak` 第 1 步预检会给出明确提示 |
 | `state 校验失败` | `PUBLIC_BASE_URL` 与浏览器访问地址不一致（回调 URL 漂移）；设置 `PUBLIC_BASE_URL` 为统一对外地址后重启 |
